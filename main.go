@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -49,7 +50,7 @@ func getFileGitHistory(filePath string) ([]string, error) {
 	}
 
 	history := strings.Split(strings.TrimSpace(string(output)), "\n")
-	fmt.Printf("Git history for '%s':\n", filePath)
+	fmt.Printf("\nGit history for '%s':\n", filePath)
 	for i, line := range history {
 		if i+1 < 10 {
 			fmt.Printf(" %d. %s\n", i+1, line)
@@ -80,6 +81,92 @@ func rollbackToCommit(filePath string, commit string) error {
 	return nil
 }
 
+func countRolloutFiles(dirPath string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.EqualFold(info.Name(), "rollout.yaml") {
+			files = append(files, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
+func handleSingleRolloutFile(filePath string) {
+	history, err := getFileGitHistory(filePath)
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+
+	for {
+		defaultIndex := 2
+		if len(history) < defaultIndex {
+			defaultIndex = len(history)
+		}
+		fmt.Printf("Enter the number of the commit to rollback to [%d]: ", defaultIndex)
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		input := scanner.Text()
+		if input == "" {
+			input = strconv.Itoa(defaultIndex)
+		}
+		index, err := strconv.Atoi(input)
+		if err != nil || index < 1 || index > len(history) {
+			fmt.Println("Invalid number. Please try again.")
+			continue
+		}
+
+		if index == 1 {
+			fmt.Printf("No rollback has been done for '%s' because it is already at commit number 1.\n", filePath)
+			break
+		}
+
+		commit := strings.Split(history[index-1], ",")[0]
+		if err := rollbackToCommit(filePath, commit); err != nil {
+			fmt.Println("Error rolling back:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Successfully rolled back '%s' to commit %s.\n", filePath, commit)
+		break
+	}
+}
+
+func handleDirectoryRolloutFiles(dirPath string) {
+	files, err := countRolloutFiles(dirPath)
+	if err != nil {
+		fmt.Println("Error walking the directory:", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Found %d rollout.yaml files:\n", len(files))
+	for _, file := range files {
+		fmt.Println(file)
+	}
+
+	fmt.Print("Would you like to continue with rolling back all these files? (yes/no): ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	response := strings.ToLower(scanner.Text())
+	if response != "yes" {
+		fmt.Println("Operation aborted by the user.")
+		os.Exit(0)
+	}
+
+	fmt.Println("Proceeding with rollback for all rollout.yaml files...")
+	for _, file := range files {
+		handleSingleRolloutFile(file)
+	}
+}
+
 func main() {
 	var count int
 
@@ -91,7 +178,7 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Available subcommands:")
 			fmt.Println("  hello    Print 'Hello, World!' multiple times")
-			fmt.Println("  rollback Check if a file or directory exists at a given path")
+			fmt.Println("  rollback Check if a file or directory exists at the given path")
 		},
 	}
 
@@ -127,40 +214,9 @@ func main() {
 			}
 
 			if strings.HasSuffix(inputPath, "rollout.yaml") {
-				history, err := getFileGitHistory(inputPath)
-				if err != nil {
-					fmt.Println("Error:", err)
-					os.Exit(1)
-				}
-
-				for {
-					defaultIndex := 2
-					if len(history) < defaultIndex {
-						defaultIndex = len(history)
-					}
-					fmt.Printf("Enter the number of the commit to rollback to [%d]: ", defaultIndex)
-					scanner := bufio.NewScanner(os.Stdin)
-					scanner.Scan()
-					input := scanner.Text()
-					if input == "" {
-						input = strconv.Itoa(defaultIndex)
-					}
-					index, err := strconv.Atoi(input)
-					if err != nil || index < 1 || index > len(history) {
-						fmt.Println("Invalid number. Please try again.")
-						continue
-					}
-
-					commit := strings.Split(history[index-1], ",")[0]
-					if err := rollbackToCommit(inputPath, commit); err != nil {
-						fmt.Println("Error rolling back:", err)
-						os.Exit(1)
-					}
-					fmt.Printf("Successfully rolled back '%s' to commit %s.\n", inputPath, commit)
-					break
-				}
+				handleSingleRolloutFile(inputPath)
 			} else {
-				fmt.Println("The file is not named 'rollout.yaml'.")
+				handleDirectoryRolloutFiles(inputPath)
 			}
 		},
 	}
