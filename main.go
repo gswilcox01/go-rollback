@@ -161,7 +161,7 @@ func handleDirectoryRolloutFiles(dirPath string) {
 		os.Exit(0)
 	}
 
-	fmt.Println("Proceeding with rollback for all rollout.yaml files...")
+	fmt.Println("Proceeding with rollback for all %d rollout.yaml files...", len(files))
 	for _, file := range files {
 		handleSingleRolloutFile(file)
 	}
