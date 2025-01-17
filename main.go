@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,20 +41,27 @@ func isGitRepo() (bool, string, error) {
 	return true, currentBranch, nil
 }
 
-func getFileGitHistory(filePath string) error {
+func getFileGitHistory(filePath string) ([]string, error) {
 	cmd := exec.Command("git", "log", "--pretty=format:%h, %an, %ad, %s", "--date=format:%Y-%m-%d %H:%M:%S", "-n", "10", "--", filePath)
 	output, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed to retrieve git history: %v", err)
+		return nil, fmt.Errorf("failed to retrieve git history: %v", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	history := strings.Split(strings.TrimSpace(string(output)), "\n")
 	fmt.Printf("Git history for '%s':\n", filePath)
-	for i, line := range lines {
+	for i, line := range history {
 		fmt.Printf("%d. %s\n", i+1, line)
 	}
 
-	return nil
+	return history, nil
+}
+
+func rollbackToCommit(filePath string, commit string) error {
+	cmd := exec.Command("git", "checkout", commit, "--", filePath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func main() {
@@ -91,7 +98,7 @@ func main() {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			inputPath := args[0]
-			info, err := os.Stat(inputPath)
+			_, err := os.Stat(inputPath)
 			if os.IsNotExist(err) {
 				fmt.Printf("The path '%s' does not exist.\n", inputPath)
 				os.Exit(1)
@@ -104,45 +111,34 @@ func main() {
 				os.Exit(1)
 			}
 
-			if info.IsDir() {
-				fmt.Printf("The path '%s' exists and is a directory.\n", inputPath)
-				count := 0
-
-				err := filepath.Walk(inputPath, func(path string, fileInfo os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if strings.EqualFold(fileInfo.Name(), "rollout.yaml") {
-						count++
-					}
-					return nil
-				})
-
+			if strings.HasSuffix(inputPath, "rollout.yaml") {
+				history, err := getFileGitHistory(inputPath)
 				if err != nil {
-					fmt.Printf("Error walking the directory: %s\n", err)
+					fmt.Println("Error:", err)
 					os.Exit(1)
 				}
 
-				fmt.Printf("Found %d files named 'rollout.yaml' in the directory '%s'.\n", count, inputPath)
-				fmt.Print("Would you like to continue? (yes/no): ")
-				scanner := bufio.NewScanner(os.Stdin)
-				scanner.Scan()
-				response := scanner.Text()
-				if strings.ToLower(response) != "yes" {
-					fmt.Println("Operation aborted by the user.")
-					os.Exit(0)
-				}
-				fmt.Println("Operation was continued by the user.")
-			} else {
-				fmt.Printf("The path '%s' exists and is a file.\n", inputPath)
-				if strings.HasSuffix(inputPath, "rollout.yaml") {
-					if err := getFileGitHistory(inputPath); err != nil {
-						fmt.Println("Error:", err)
+				for {
+					fmt.Print("Enter the number of the commit to rollback to: ")
+					scanner := bufio.NewScanner(os.Stdin)
+					scanner.Scan()
+					input := scanner.Text()
+					index, err := strconv.Atoi(input)
+					if err != nil || index < 1 || index > len(history) {
+						fmt.Println("Invalid number. Please try again.")
+						continue
+					}
+
+					commit := strings.Split(history[index-1], ",")[0]
+					if err := rollbackToCommit(inputPath, commit); err != nil {
+						fmt.Println("Error rolling back:", err)
 						os.Exit(1)
 					}
-				} else {
-					fmt.Println("The file is not named 'rollout.yaml'.")
+					fmt.Printf("Successfully rolled back '%s' to commit %s.\n", inputPath, commit)
+					break
 				}
+			} else {
+				fmt.Println("The file is not named 'rollout.yaml'.")
 			}
 		},
 	}
