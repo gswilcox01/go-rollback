@@ -147,7 +147,7 @@ func main() {
 		},
 	}
 
-	// Add subcommands to the root command
+	// Add subcommands to the root   command
 	rootCmd.AddCommand(helloCmd)
 	rootCmd.AddCommand(rollbackCmd)
 
