@@ -152,7 +152,7 @@ func handleDirectoryRolloutFiles(dirPath string) {
 		fmt.Println(file)
 	}
 
-	fmt.Print("Would you like to continue with rolling back all these files? (yes/no): ")
+	fmt.Printf("Would you like to continue with rolling back all %d of these files? (yes/no): ", len(files))
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	response := strings.ToLower(scanner.Text())

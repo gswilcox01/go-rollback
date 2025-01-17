@@ -1,4 +1,4 @@
-module gswilcox01/go-cobra
+module gswilcox01/go-rollback
 
 go 1.23.4
 
