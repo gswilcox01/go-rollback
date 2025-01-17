@@ -51,7 +51,11 @@ func getFileGitHistory(filePath string) ([]string, error) {
 	history := strings.Split(strings.TrimSpace(string(output)), "\n")
 	fmt.Printf("Git history for '%s':\n", filePath)
 	for i, line := range history {
-		fmt.Printf("%d. %s\n", i+1, line)
+		if i+1 < 10 {
+			fmt.Printf(" %d. %s\n", i+1, line)
+		} else {
+			fmt.Printf("%d. %s\n", i+1, line)
+		}
 	}
 
 	return history, nil
@@ -66,7 +70,7 @@ func rollbackToCommit(filePath string, commit string) error {
 	}
 
 	commitMessage := fmt.Sprintf("Successfully rolled back '%s' to commit %s", filePath, commit)
-	cmd = exec.Command("git", "commit", "-am", commitMessage)
+	cmd = exec.Command("git", "commit", "-m", commitMessage, filePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
