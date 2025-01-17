@@ -130,10 +130,17 @@ func main() {
 				}
 
 				for {
-					fmt.Print("Enter the number of the commit to rollback to: ")
+					defaultIndex := 2
+					if len(history) < defaultIndex {
+						defaultIndex = len(history)
+					}
+					fmt.Printf("Enter the number of the commit to rollback to [%d]: ", defaultIndex)
 					scanner := bufio.NewScanner(os.Stdin)
 					scanner.Scan()
 					input := scanner.Text()
+					if input == "" {
+						input = strconv.Itoa(defaultIndex)
+					}
 					index, err := strconv.Atoi(input)
 					if err != nil || index < 1 || index > len(history) {
 						fmt.Println("Invalid number. Please try again.")
