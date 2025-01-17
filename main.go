@@ -42,7 +42,7 @@ func isGitRepo() (bool, string, error) {
 }
 
 func getFileGitHistory(filePath string) error {
-	cmd := exec.Command("git", "log", "--oneline", "-n", "10", "--", filePath)
+	cmd := exec.Command("git", "log", "--pretty=format:%h, %an, %ad, %s", "--date=format:%Y-%m-%d %H:%M:%S", "-n", "10", "--", filePath)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve git history: %v", err)
@@ -147,7 +147,7 @@ func main() {
 		},
 	}
 
-	// Add subcommands to the root   command
+	// Add subcommands to the root command
 	rootCmd.AddCommand(helloCmd)
 	rootCmd.AddCommand(rollbackCmd)
 
