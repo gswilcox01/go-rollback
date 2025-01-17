@@ -168,34 +168,7 @@ func handleDirectoryRolloutFiles(dirPath string) {
 }
 
 func main() {
-	var count int
-
-	// Create the root command
 	var rootCmd = &cobra.Command{
-		Use:   "cli",
-		Short: "A CLI tool with subcommands",
-		Long:  `This CLI tool provides two subcommands: hello and rollback.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Available subcommands:")
-			fmt.Println("  hello    Print 'Hello, World!' multiple times")
-			fmt.Println("  rollback Check if a file or directory exists at the given path")
-		},
-	}
-
-	// Create the hello command
-	var helloCmd = &cobra.Command{
-		Use:   "hello",
-		Short: "Print 'Hello, World!' multiple times",
-		Run: func(cmd *cobra.Command, args []string) {
-			for i := 1; i <= count; i++ {
-				fmt.Printf("Hello, World! %d\n", i)
-			}
-		},
-	}
-	helloCmd.Flags().IntVarP(&count, "count", "c", 1, "Number of times to print 'Hello, World!'")
-
-	// Create the rollback command
-	var rollbackCmd = &cobra.Command{
 		Use:   "rollback [path]",
 		Short: "Check if a file or directory exists at the given path",
 		Args:  cobra.ExactArgs(1),
@@ -221,11 +194,6 @@ func main() {
 		},
 	}
 
-	// Add subcommands to the root command
-	rootCmd.AddCommand(helloCmd)
-	rootCmd.AddCommand(rollbackCmd)
-
-	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
