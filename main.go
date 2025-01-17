@@ -61,7 +61,19 @@ func rollbackToCommit(filePath string, commit string) error {
 	cmd := exec.Command("git", "checkout", commit, "--", filePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to checkout commit: %v", err)
+	}
+
+	commitMessage := fmt.Sprintf("Successfully rolled back '%s' to commit %s", filePath, commit)
+	cmd = exec.Command("git", "commit", "-am", commitMessage)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create commit: %v", err)
+	}
+
+	return nil
 }
 
 func main() {
@@ -98,14 +110,13 @@ func main() {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			inputPath := args[0]
-			_, err := os.Stat(inputPath)
-			if os.IsNotExist(err) {
+			if _, err := os.Stat(inputPath); os.IsNotExist(err) {
 				fmt.Printf("The path '%s' does not exist.\n", inputPath)
 				os.Exit(1)
 			}
 
 			// check we are in a git repo
-			_, _, err = isGitRepo()
+			_, _, err := isGitRepo()
 			if err != nil {
 				fmt.Println("Error:", err)
 				os.Exit(1)
